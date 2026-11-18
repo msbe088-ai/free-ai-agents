@@ -61,7 +61,20 @@ def facts_text(sym: dict) -> str:
         L.append(f"الاختبار التاريخي اليومي: صفقات {bt['trades']}، رابحة {bt['wins']}، خاسرة {bt['losses']}")
     sig = sym.get("signals", {}).get("1d", 0)
     L.append("إشارة الماسح اليومية الحالية: " + ("شراء" if sig > 0 else "بيع" if sig < 0 else "لا توجد"))
+    pl = sym.get("tf", {}).get("1d", {}).get("plan", {})
+    if pl.get("status") == "ok":
+        L.append(plan_line(pl))
     return "\n".join(L)
+
+
+def plan_line(pl: dict) -> str:
+    side = {"buy": "شراء", "sell": "بيع"}.get(pl.get("side"), "لا صفقة")
+    if side == "لا صفقة":
+        return "خطة الصفقة الآلية اليومية: لا صفقة"
+    tg = pl.get("targets", [])
+    far = tg[-1]["price"] if len(tg) > 1 else "غير متوفر"
+    return (f"خطة الصفقة الآلية اليومية: {side}؛ الحالة: {pl['status_ar']}؛ الدخول {pl['entry']}؛ الوقف {pl['stop']}؛ "
+            f"الهدف القريب {tg[0]['price'] if tg else 'غير متوفر'}؛ الهدف البعيد {far}")
 
 
 def semantic_guard(text: str, sym: dict) -> list[str]:
@@ -98,6 +111,12 @@ def semantic_guard(text: str, sym: dict) -> list[str]:
         for m in re.finditer(r"(\d+)\s*(?:صفق[ةه]|صفقات)?\s*خاسر", t):
             if int(m.group(1)) != bt["losses"]:
                 bad.append("losses")
+    pl = sym.get("tf", {}).get("1d", {}).get("plan", {})
+    if pl.get("status") == "ok":
+        pside = {"buy": "شراء", "sell": "بيع"}.get(pl.get("side"))
+        for m in re.finditer(r"خط[ةه][^.]{0,30}?(شراء|بيع)", t):
+            if m.group(1) != pside:
+                bad.append("plan side")
     sig = sym.get("signals", {}).get("1d", 0)
     says_none = bool(re.search(r"لا\s*توجد\s*إشار|لا\s*إشار", t))
     says_buy = bool(re.search(r"إشار[ةه]?[^.]{0,25}شراء", t))
@@ -126,19 +145,24 @@ def template(sym: dict) -> str:
     bt = sym.get("backtest", {})
     if bt.get("status") == "ok":
         parts.append(f"الاختبار التاريخي: {bt['trades']} صفقة، {bt['wins']} رابحة و{bt['losses']} خاسرة.")
+    pl = t and sym.get("tf", {}).get("1d", {}).get("plan", {})
+    if pl and pl.get("status") == "ok":
+        parts.append(plan_line(pl) + ".")
     return " ".join(parts)
 
 
 EXAMPLE_FACTS = ("الرمز: XYZ (Example Corp)\nآخر إغلاق يومي: 41.7\nالاتجاه: هابط؛ الموقع من المتوسطات: تحت المتوسطين 50 و200\n"
                  "RSI14: 33.1؛ وصفه: محايد (بين 30 و70)\nأقرب دعم: 40.05\nأقرب مقاومة: 43.9\n"
-                 "الاختبار التاريخي اليومي: صفقات 21، رابحة 9، خاسرة 12\nإشارة الماسح اليومية الحالية: شراء")
+                 "الاختبار التاريخي اليومي: صفقات 21، رابحة 9، خاسرة 12\nإشارة الماسح اليومية الحالية: شراء\n"
+                 "خطة الصفقة الآلية اليومية: شراء؛ الحالة: نشطة؛ الدخول 41.7؛ الوقف 39.4؛ الهدف القريب 43.9؛ الهدف البعيد 47.2")
 EXAMPLE_ANSWER = ("أغلق XYZ آخر مرة عند 41.7، والاتجاه هابط والسعر تحت المتوسطين 50 و200، وأقرب دعم 40.05 وأقرب مقاومة 43.9. "
-                  "مؤشر القوة النسبية 33.1 ووصفه محايد. في الاختبار التاريخي اليومي 21 صفقة منها 9 رابحة و12 خاسرة، وإشارة الماسح اليومية الحالية: شراء.")
+                  "مؤشر القوة النسبية 33.1 ووصفه محايد. في الاختبار التاريخي اليومي 21 صفقة منها 9 رابحة و12 خاسرة، وإشارة الماسح اليومية الحالية: شراء. "
+                  "الخطة الآلية اليومية شراء وحالتها نشطة: الدخول 41.7 والوقف 39.4 والهدف القريب 43.9 والبعيد 47.2.")
 
 SYSTEM = ("أنت مساعد مالي يكتب بالعربية الفصحى المبسطة فقط (بدون أي لغة أخرى). اكتب ملخصاً قصيراً "
-          "من 3 جمل فقط اعتماداً على الحقائق المعطاة: الاتجاه وأهم مستوى قريب، ثم الزخم (RSI)، ثم "
-          "نتيجة الاختبار التاريخي أو المشاعر. لا تنقل كل الحقائق. لا تضف أي رقم غير موجود في الحقائق، "
-          "ولا تعطِ توصية شراء أو بيع، ولا تتوقع السعر. قل «آخر إغلاق» ولا تقل «اليوم». انقل الأرقام كما هي.")
+          "من 3 إلى 4 جمل فقط اعتماداً على الحقائق المعطاة: الاتجاه وأهم مستوى قريب، ثم الزخم (RSI)، ثم "
+          "نتيجة الاختبار التاريخي، ثم خطة الصفقة الآلية (حالتها والدخول والوقف والهدف القريب والبعيد). لا تنقل كل الحقائق. لا تضف أي رقم غير موجود في الحقائق، "
+          "ولا تعطِ توصية من عندك ولا تتوقع السعر؛ الخطة الآلية تُنقل كما هي. قل «آخر إغلاق» ولا تقل «اليوم». انقل الأرقام كما هي.")
 BAD_SCRIPT = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\u0400-\u04ff]")
 
 
@@ -172,7 +196,7 @@ def explain(sym: dict, enabled: bool = True) -> dict:
                       {"role": "user", "content": "الحقائق:\n" + EXAMPLE_FACTS + "\n\nالملخص:"},
                       {"role": "assistant", "content": EXAMPLE_ANSWER},
                       {"role": "user", "content": "الحقائق:\n" + facts + "\n\nالملخص:"}],
-            temperature=temp, max_tokens=260, seed=7)
+            temperature=temp, max_tokens=330, seed=7)
         ch = out["choices"][0]
         text = tidy(ch["message"]["content"], ch.get("finish_reason"))
         good, bad = guard(text, facts)

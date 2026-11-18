@@ -19,7 +19,7 @@ import pandas as pd
 import requests
 import yaml
 
-from agents import (alerts_agent, backtest_agent, crypto_agent, data_agent, explainer_agent,
+from agents import (plan_agent, alerts_agent, backtest_agent, crypto_agent, data_agent, explainer_agent,
                     fundamentals_agent, levels_agent, macro_agent, news_agent, options_agent,
                     patterns_agent, scanner_agent, sentiment_agent, technical_agent)
 from agents.common import dump_json, iso, now_utc, price_round, r2, riyadh_label
@@ -123,6 +123,8 @@ def process_symbol(item: dict, kind: str, cfg: dict, prev: dict | None, sec_ua: 
         t["technical"] = section(lambda: technical_agent.analyse(closed, tkey), p_tf.get("technical"), f"technical {tf}", errors)
         t["patterns"] = section(lambda: patterns_agent.analyse(closed, tkey), p_tf.get("patterns"), f"patterns {tf}", errors)
         t["levels"] = section(lambda: levels_agent.analyse(closed, tkey), p_tf.get("levels"), f"levels {tf}", errors)
+        trend = (t["technical"] or {}).get("trend", "") if t["technical"].get("status") == "ok" else ""
+        t["plan"] = section(lambda: plan_agent.analyse(closed, tkey, trend), p_tf.get("plan"), f"plan {tf}", errors)
         out["tf"][tf] = t
         if tf in ("1d", "4h"):
             out["signals"][tf] = scanner_agent.current_signal(closed)
@@ -270,6 +272,7 @@ def main() -> int:
     count("technical", lambda r: r["tf"]["1d"]["technical"])
     count("patterns", lambda r: r["tf"]["1d"]["patterns"])
     count("levels", lambda r: r["tf"]["1d"]["levels"])
+    count("plan", lambda r: r["tf"]["1d"].get("plan"))
     count("news", lambda r: r["news"])
     count("sentiment", lambda r: r["sentiment"])
     count("fundamentals", lambda r: r["fundamentals"] if stocks(r) else None)

@@ -2,12 +2,14 @@
 (function () {
   const TF_AR = { '1d': 'يومي', '4h': '4 ساعات', '1h': 'ساعة' };
   const TABS = [
-    ['summary', 'الملخص العربي'], ['data', 'البيانات'], ['crypto', 'الكريبتو'], ['technical', 'التحليل الفني'],
+    ['summary', 'الملخص العربي'], ['plan', 'خطة الصفقة'], ['data', 'البيانات'], ['crypto', 'الكريبتو'], ['technical', 'التحليل الفني'],
     ['patterns', 'أنماط الشموع'], ['levels', 'المستويات/فيبوناتشي'], ['news', 'الأخبار'], ['sentiment', 'المشاعر'],
     ['macro', 'الاقتصاد الكلي'], ['fundamentals', 'الأساسيات والأرباح'], ['options', 'الخيارات'],
     ['backtest', 'الاختبار التاريخي'], ['scanner', 'الماسح'], ['risk', 'حاسبة المخاطرة'], ['status', 'حالة الوكلاء']
   ];
-  const state = { index: null, sym: null, data: {}, tf: '1d', tab: 'summary', chart: null, candle: null, vol: null, lines: [] };
+  const state = { index: null, sym: null, data: {}, tf: '1d', tab: 'summary', chart: null, candle: null, vol: null, lines: [], planLines: [] };
+  const PLAN_COLORS = { entry: '#4c8dff', stop: '#ff9800', TP1: '#c6ff00', TP2: '#00e5ff', TP3: '#e040fb' };
+  const SIDE_AR = { buy: 'شراء', sell: 'بيع', none: 'لا صفقة' };
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (x) => x == null ? '—' : (typeof x === 'number' ? x.toLocaleString('en-US', { maximumFractionDigits: 6 }) : esc(x));
@@ -70,12 +72,19 @@
     const bars = t.bars.map(b => ({ time: b[0], open: b[1], high: b[2], low: b[3], close: b[4] }));
     state.candle.setData(bars);
     state.vol.setData(t.bars.map(b => ({ time: b[0], value: b[5] || 0, color: b[4] >= b[1] ? 'rgba(38,166,154,.35)' : 'rgba(239,83,80,.35)' })));
-    state.lines.forEach(l => state.candle.removePriceLine(l)); state.lines = [];
+    state.lines.forEach(l => state.candle.removePriceLine(l)); state.lines = []; state.planLines = [];
     const add = (price, color, title, style) => { if (price == null) return; state.lines.push(state.candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title })); };
     const ta = t.technical || {};
     if ($('tgLevels').checked && ta.status === 'ok') {
       (ta.supports || []).forEach((p, i) => add(p, '#26a69a', 'دعم ' + (i + 1), 2));
       (ta.resistances || []).forEach((p, i) => add(p, '#ef5350', 'مقاومة ' + (i + 1), 2));
+    }
+    if ($('tgPlan').checked && t.plan && t.plan.status === 'ok' && t.plan.side !== 'none') {
+      const p = t.plan;
+      const addP = (price, color, title) => { if (price == null) return; const l = state.candle.createPriceLine({ price, color, lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title }); state.lines.push(l); state.planLines.push(l); };
+      addP(p.entry, PLAN_COLORS.entry, 'دخول ' + SIDE_AR[p.side]);
+      addP(p.stop, PLAN_COLORS.stop, 'وقف');
+      (p.targets || []).slice(0, 3).forEach((tg, k) => addP(tg.price, PLAN_COLORS[tg.name], (k === 0 ? 'هدف قريب ' : 'هدف بعيد ') + tg.name));
     }
     const lv = t.levels || {};
     if ($('tgFib').checked && lv.status === 'ok') lv.levels.forEach(l => add(l.price, '#f0b90b', 'فيبو ' + l.ratio, 1));
@@ -111,7 +120,37 @@
   }
   function renderTab() { $('tabBody').innerHTML = (R[state.tab] || (() => ''))(); if (state.tab === 'risk') bindRisk(); }
 
+  function planText(p, sym, tfAr) {
+    if (!p || p.status !== 'ok') return 'خطة الصفقة غير متاحة.';
+    if (p.side === 'none') return `خطة ${sym} (${tfAr}): ${p.status_ar}. ${p.entry_rule || ''}`;
+    const tg = p.targets || [];
+    return `خطة ${sym} الآلية (${tfAr}): ${SIDE_AR[p.side]} — ${p.status_ar}.\nالدخول ${fmt(p.entry)} · الوقف ${fmt(p.stop)}\n` +
+      tg.map((x, k) => `${k === 0 ? 'الهدف القريب' : 'هدف بعيد'} ${x.name}: ${fmt(x.price)} (${fmt(x.r)}R)`).join('\n') +
+      `\nالإلغاء: ${p.invalidation}`;
+  }
   const R = {
+    plan() {
+      const d = state.data[state.sym], p = (d.tf[state.tf] || {}).plan;
+      if (!p || p.status !== 'ok') return '<h3>خطة الصفقة</h3>' + secErr(p);
+      const h = p.history || {};
+      const sideCls = p.side === 'buy' ? 'b-buy' : p.side === 'sell' ? 'b-sell' : '';
+      const rows = p.side === 'none' ? '' : `<table><tr><th>البند</th><th>السعر</th><th>مضاعف R</th><th>المصدر</th></tr>
+        <tr><td><span style="color:${PLAN_COLORS.entry}">■</span> الدخول</td><td><b>${fmt(p.entry)}</b></td><td>—</td><td>${p.basis === 'signal' ? 'إغلاق شمعة الإشارة (التنفيذ عند افتتاح التالية)' : 'مستوى الاختراق'}</td></tr>
+        <tr><td><span style="color:${PLAN_COLORS.stop}">■</span> الوقف</td><td><b>${fmt(p.stop)}</b></td><td>−1R</td><td>${esc(p.stop_rule)}</td></tr>
+        ${(p.targets || []).map((t, k) => `<tr><td><span style="color:${PLAN_COLORS[t.name]}">■</span> ${k === 0 ? 'الهدف القريب' : 'هدف بعيد'} ${t.name}</td><td><b>${fmt(t.price)}</b></td><td>${fmt(t.r)}R</td><td>${esc(t.source)}</td></tr>`).join('')}</table>`;
+      return `<h3>خطة الصفقة الآلية — ${esc(d.symbol)} (${TF_AR[state.tf]}) <span class="badge ${sideCls}">${SIDE_AR[p.side]}</span> ${badge(p)}</h3>
+        <div class="kv"><div>الحالة</div><div><b>${esc(p.status_ar)}</b></div>
+        <div>شرط الدخول</div><div>${esc(p.entry_rule || '—')}</div>
+        ${p.fill != null ? `<div>سعر التنفيذ الفعلي (افتتاح)</div><div>${fmt(p.fill)}</div>` : ''}
+        <div>الإلغاء</div><div>${esc(p.invalidation || '—')}</div>
+        <div>المخاطرة لكل وحدة</div><div>${fmt(p.risk_per_unit)} (ATR14 = ${fmt(p.atr14)})</div>
+        ${p.previous_plan ? `<div>الخطة السابقة</div><div>${SIDE_AR[p.previous_plan.side]} من إشارة ${esc(p.previous_plan.signal_bar)}: ${esc(p.previous_plan.status_ar)}</div>` : ''}</div>
+        ${rows}
+        <b>فحص تاريخي لنفس القاعدة (${TF_AR[state.tf]})</b>
+        <table><tr><th>الصفقات</th><th>الرابحة</th><th>الخاسرة</th></tr><tr><td><b>${h.trades ?? '—'}</b></td><td class="up"><b>${h.wins ?? '—'}</b></td><td class="down"><b>${h.losses ?? '—'}</b></td></tr></table>
+        <p class="muted">${esc(h.rule || '')} · الفترة ${esc(h.period_from)} → ${esc(h.period_to)}. صفقة مفتوحة في آخر البيانات لا تُحسب.</p>
+        <p class="muted">⚠️ ${esc(p.method)}. محسوبة على الشموع المغلقة فقط. فعّل/أطفئ «خطة الصفقة» فوق الشارت لرسم الخطوط.</p>`;
+    },
     summary() {
       const d = state.data[state.sym], s = d.summary || {};
       return `<h3>الملخص العربي — ${esc(d.symbol)} ${badge(s.status ? s : null)}</h3>
@@ -228,17 +267,22 @@
     risk() {
       const d = state.data[state.sym];
       const ta = (d.tf[state.tf] || {}).technical || {};
+      const pl = (d.tf[state.tf] || {}).plan || {};
+      const usePlan = pl.status === 'ok' && pl.side !== 'none';
+      const e0 = usePlan ? pl.entry : d.last;
+      const s0 = usePlan ? pl.stop : (ta.supports || []).find(x => x < d.last);
+      const t0 = usePlan ? (pl.targets[0] || {}).price : (ta.resistances || []).find(x => x > d.last);
       return `<h3>حاسبة المخاطرة (تعمل في متصفحك)</h3>
         <div class="risk-grid">
           <label>رأس المال $<input type="number" id="rkCap" value="10000" step="any"></label>
           <label>نسبة المخاطرة %<input type="number" id="rkPct" value="1" step="any"></label>
-          <label>سعر الدخول<input type="number" id="rkEntry" value="${d.last ?? ''}" step="any"></label>
-          <label>وقف الخسارة<input type="number" id="rkStop" value="${(ta.supports || []).find(x => x < d.last) ?? ''}" step="any"></label>
-          <label>الهدف (اختياري)<input type="number" id="rkTarget" value="${(ta.resistances || []).find(x => x > d.last) ?? ''}" step="any"></label>
+          <label>سعر الدخول<input type="number" id="rkEntry" value="${e0 ?? ''}" step="any"></label>
+          <label>وقف الخسارة<input type="number" id="rkStop" value="${s0 ?? ''}" step="any"></label>
+          <label>الهدف (اختياري)<input type="number" id="rkTarget" value="${t0 ?? ''}" step="any"></label>
           <label>&nbsp;<button class="btn" id="rkBtn" type="button">احسب</button></label>
         </div>
         <div class="risk-out" id="rkOut"></div>
-        <p class="muted">القيم المبدئية: آخر سعر وأقرب دعم/مقاومة من التحليل الفني — غيّرها كما تريد. الحساب: مبلغ المخاطرة = رأس المال × النسبة، والكمية = مبلغ المخاطرة ÷ المسافة بين الدخول والوقف.</p>`;
+        <p class="muted">القيم المبدئية: ${usePlan ? 'دخول ووقف والهدف القريب من خطة الصفقة الآلية' : 'آخر سعر وأقرب دعم/مقاومة من التحليل الفني'} — غيّرها كما تريد. الحساب: مبلغ المخاطرة = رأس المال × النسبة، والكمية = مبلغ المخاطرة ÷ المسافة بين الدخول والوقف.</p>`;
     },
     status() {
       const i = state.index, a = i.agent_status || {};
@@ -282,6 +326,7 @@
     let txt = '';
     const okSec = (s) => s && s.status === 'ok';
     switch (route.topic) {
+      case 'plan': txt = planText((d.tf[state.tf] || t).plan, d.symbol, TF_AR[state.tf]); break;
       case 'risk': txt = `افتح حاسبة المخاطرة تحت: أدخل رأس المال ونسبة المخاطرة والدخول والوقف. القيم المبدئية لـ ${d.symbol}: الدخول ${fmt(d.last)} والوقف عند أقرب دعم تحت السعر ${fmt((ta.supports || []).find(x => x < d.last))}.`; break;
       case 'scanner': { const s = state.index.scanner.signals; txt = s.length ? 'الإشارات الحالية:\n' + s.map(x => `• ${x.symbol}: ${x.side} على فريم ${TF_AR[x.tf]} (إغلاق ${fmt(x.close)})`).join('\n') : 'لا توجد إشارة حالية في قائمة المراقبة.'; break; }
       case 'backtest': { const b = d.backtest; txt = okSec(b) ? `الاختبار التاريخي لـ ${d.symbol} (يومي، ${b.period_from} → ${b.period_to}): ${b.trades} صفقة، ${b.wins} رابحة و${b.losses} خاسرة.` : 'الاختبار التاريخي غير متاح لهذا الرمز.'; break; }
@@ -335,7 +380,7 @@
       document.querySelectorAll('.tf').forEach(x => x.classList.remove('active')); b.classList.add('active');
       state.tf = b.dataset.tf; drawChart(); renderTab();
     });
-    ['tgLevels', 'tgFib', 'tgPatterns', 'tgSwings'].forEach(id => $(id).onchange = drawChart);
+    ['tgPlan', 'tgLevels', 'tgFib', 'tgPatterns', 'tgSwings'].forEach(id => $(id).onchange = drawChart);
     $('tabBody').addEventListener('click', (e) => { const a = e.target.closest('.symlink'); if (a) { e.preventDefault(); $('symbolSelect').value = a.dataset.sym; selectSym(a.dataset.sym); } });
     $('askForm').onsubmit = (e) => { e.preventDefault(); const q = $('askInput').value.trim(); if (q) answer(q); };
     window.__app = { state, answer, selectSym, ready: true };
