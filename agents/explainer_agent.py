@@ -82,9 +82,21 @@ def template(sym: dict) -> str:
     return " ".join(parts)
 
 
-SYSTEM = ("أنت مساعد مالي يكتب بالعربية الفصحى المبسطة. اكتب ملخصاً قصيراً من 3 إلى 4 جمل "
-          "اعتماداً فقط على الحقائق المعطاة. لا تضف أي رقم غير موجود في الحقائق، ولا تعطِ توصية "
-          "شراء أو بيع، ولا تتوقع السعر. انقل الأرقام كما هي.")
+SYSTEM = ("أنت مساعد مالي يكتب بالعربية الفصحى المبسطة فقط (بدون أي لغة أخرى). اكتب ملخصاً قصيراً "
+          "من 3 جمل فقط اعتماداً على الحقائق المعطاة: الاتجاه وأهم مستوى قريب، ثم الزخم (RSI)، ثم "
+          "نتيجة الاختبار التاريخي أو المشاعر. لا تنقل كل الحقائق. لا تضف أي رقم غير موجود في الحقائق، "
+          "ولا تعطِ توصية شراء أو بيع، ولا تتوقع السعر. قل «آخر إغلاق» ولا تقل «اليوم». انقل الأرقام كما هي.")
+BAD_SCRIPT = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\u0400-\u04ff]")
+
+
+def tidy(text: str, finish: str | None) -> str:
+    """Drop a sentence cut by the token limit."""
+    text = text.strip()
+    if finish == "length" or not text.endswith((".", "!", "؟")):
+        cut = max(text.rfind("."), text.rfind("؟"), text.rfind("!"))
+        if cut > 40:
+            text = text[:cut + 1]
+    return text
 
 
 def explain(sym: dict, enabled: bool = True) -> dict:
@@ -103,13 +115,16 @@ def explain(sym: dict, enabled: bool = True) -> dict:
         out = llm.create_chat_completion(
             messages=[{"role": "system", "content": SYSTEM},
                       {"role": "user", "content": "الحقائق:\n" + facts + "\n\nالملخص:"}],
-            temperature=temp, max_tokens=220, seed=7)
-        text = out["choices"][0]["message"]["content"].strip()
+            temperature=temp, max_tokens=320, seed=7)
+        ch = out["choices"][0]
+        text = tidy(ch["message"]["content"], ch.get("finish_reason"))
         good, bad = guard(text, facts)
-        if good and len(text) > 20:
+        if BAD_SCRIPT.search(text):
+            good, bad = False, bad + ["non-Arabic script"]
+        if good and len(text) > 40 and text.endswith((".", "!", "؟")):
             return {"status": "ok", "text": text, "mode": "llm", "model": f"{REPO}/{FILE}",
                     "seconds": round(time.time() - t0, 1), "attempts": attempt + 1, "facts": facts}
         last_bad = bad
     return {"status": "ok", "text": template(sym), "mode": "template",
-            "reason": f"رُفض نص النموذج لأنه ذكر أرقاماً غير موجودة في الحقائق: {last_bad[:5]}",
+            "reason": f"رُفض نص النموذج (أرقام غير موجودة في الحقائق أو نص مقطوع/بلغة أخرى): {last_bad[:5]}",
             "facts": facts}

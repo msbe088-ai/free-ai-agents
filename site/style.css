@@ -7,6 +7,9 @@ a{color:var(--blue)}
 .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .ctl{display:flex;gap:6px;align-items:center;color:var(--muted)}
 select,input,button{font:inherit}
+select{max-width:100%}
+.ask-form input{min-width:0}
+html,body{overflow-x:hidden}
 select,input[type=text],input[type=number]{background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
 .tfs{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .tf{background:var(--card2);color:var(--muted);border:0;padding:7px 12px;cursor:pointer}
@@ -60,4 +63,8 @@ th{color:var(--muted);font-weight:600}
   .agents-card{max-height:none;min-height:0}
   .topbar{position:static}
   .brand{font-size:16px}
+  .controls{width:100%}
+  .ctl{flex:1;min-width:0}
+  .ctl select{flex:1;min-width:0;width:100%}
+  .tab-body{overflow-x:auto}
 }
