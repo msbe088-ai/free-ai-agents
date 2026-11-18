@@ -1,0 +1,4 @@
+# Local models on CPU (torch is installed first from the CPU index in the workflow)
+transformers>=4.46
+huggingface_hub>=0.26
+llama-cpp-python==0.3.37

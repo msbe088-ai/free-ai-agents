@@ -1,0 +1,63 @@
+:root{--bg:#0b0f17;--card:#121826;--card2:#182033;--line:#243049;--txt:#d7dde8;--muted:#8b97ad;--up:#26a69a;--down:#ef5350;--acc:#f0b90b;--blue:#4c8dff}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--txt);font-family:"Segoe UI",Tahoma,"Noto Naskh Arabic","Noto Sans Arabic",Arial,sans-serif;font-size:15px}
+a{color:var(--blue)}
+.topbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:10px 16px;background:#0e1420;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.brand{font-weight:700;font-size:18px}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ctl{display:flex;gap:6px;align-items:center;color:var(--muted)}
+select,input,button{font:inherit}
+select,input[type=text],input[type=number]{background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.tfs{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tf{background:var(--card2);color:var(--muted);border:0;padding:7px 12px;cursor:pointer}
+.tf.active{background:var(--acc);color:#111;font-weight:700}
+.quote{font-size:16px;display:flex;gap:10px;align-items:baseline}
+.quote .px{font-weight:700;font-size:20px}
+.up{color:var(--up)}.down{color:var(--down)}
+.notice{margin:10px 16px;padding:8px 12px;border:1px solid #3a3420;background:#1d1a10;color:#e8d9a8;border-radius:8px;font-size:13px}
+.layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:14px;padding:0 16px}
+.chart-card,.agents-card,.ask-card{background:var(--card);border:1px solid var(--line);border-radius:12px}
+.chart-card{padding:10px}
+.chart-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px}
+.chart-title{font-weight:700}
+.toggles{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:13px}
+#chart{height:520px;width:100%}
+.chart-foot{color:var(--muted);font-size:12px;margin-top:6px}
+.agents-card{display:flex;flex-direction:column;min-height:560px;max-height:640px}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;padding:8px;border-bottom:1px solid var(--line)}
+.tab{background:var(--card2);color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 10px;cursor:pointer;font-size:13px}
+.tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.tab-body{padding:12px 14px;overflow:auto;flex:1}
+.tab-body h3{margin:4px 0 8px;font-size:16px}
+.muted{color:var(--muted);font-size:13px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:6px 0}
+.kv div:nth-child(odd){color:var(--muted)}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:6px 0}
+th,td{border-bottom:1px solid var(--line);padding:5px 6px;text-align:right;vertical-align:top}
+th{color:var(--muted);font-weight:600}
+.badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;border:1px solid var(--line)}
+.b-ok{background:#123326;color:#7ee2b8;border-color:#1f5c44}
+.b-err{background:#3a1717;color:#ff9b9b;border-color:#6b2626}
+.b-stale{background:#3a3417;color:#f4dc8b;border-color:#6b5f26}
+.b-buy{background:#123326;color:#7ee2b8}.b-sell{background:#3a1717;color:#ff9b9b}
+.summary{font-size:16px;line-height:1.9;background:var(--card2);padding:12px;border-radius:10px;border:1px solid var(--line)}
+.ltr{direction:ltr;unicode-bidi:embed}
+.ask-card{margin:14px 16px;padding:12px 16px}
+.ask-card h2{margin:0 0 4px;font-size:18px}
+.ask-form{display:flex;gap:8px}
+.ask-form input{flex:1}
+.ask-form button,.btn{background:var(--acc);color:#111;border:0;border-radius:8px;padding:7px 16px;font-weight:700;cursor:pointer}
+.ask-answer{margin-top:10px;line-height:1.9;white-space:pre-line}
+.ask-answer .route{color:var(--muted);font-size:12px}
+.risk-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.risk-grid label{display:flex;flex-direction:column;gap:3px;color:var(--muted);font-size:13px}
+.risk-out{margin-top:10px}
+.news a{color:var(--txt);text-decoration:none}.news a:hover{text-decoration:underline}
+.footer{padding:6px 16px 24px;color:var(--muted);font-size:12px}
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr}
+  #chart{height:380px}
+  .agents-card{max-height:none;min-height:0}
+  .topbar{position:static}
+  .brand{font-size:16px}
+}

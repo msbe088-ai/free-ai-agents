@@ -1,0 +1,95 @@
+name: Update agents page
+
+on:
+  schedule:
+    - cron: "23 */4 * * 1-5"   # every 4 hours Mon-Fri (UTC) = 03:23, 07:23 ... 23:23 Riyadh
+    - cron: "23 3,15 * * 0,6"  # twice a day on weekends (crypto keeps trading)
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Optional comma-separated symbols for a quick test (empty = full watchlist)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  agents:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-ml.txt
+
+      - name: Cache models (FinBERT + Qwen GGUF)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-models-v1-finbert-qwen2.5-1.5b-q4km
+
+      - name: Install dependencies
+        env:
+          CMAKE_ARGS: "-DGGML_NATIVE=OFF"   # portable llama.cpp build so the cached wheel runs on any runner CPU
+        run: |
+          echo "install_start=$(date -u +%FT%TZ)"
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements-ml.txt
+          echo "install_end=$(date -u +%FT%TZ)"
+
+      - name: Run all agents
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ONLY_IN: ${{ inputs.only }}
+        run: |
+          if [ -n "$ONLY_IN" ]; then python run.py --out site --only "$ONLY_IN"; else python run.py --out site; fi
+
+      - name: Run summary
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          p = "site/data/index.json"
+          if not os.path.exists(p):
+              print("index.json missing"); raise SystemExit
+          d = json.load(open(p, encoding="utf-8"))
+          print(f"### Agents run: {d['run_seconds']} s (script)")
+          print(f"Finished: {d['generated_at_label']}")
+          print("```json"); print(json.dumps({"timings": d["timings"], "agent_status": d["agent_status"]}, ensure_ascii=False, indent=1)); print("```")
+          PY
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,30 @@
+# قائمة المراقبة — عدّلها بحرية (اشرح في README.md)
+# stocks: رموز ياهو للأسهم والصناديق الأمريكية
+# crypto: أزواج Binance مقابل USDT
+# ar: أسماء عربية يفهمها صندوق الأسئلة
+stocks:
+  - {symbol: SPY,   name: "SPDR S&P 500 ETF",  etf: true,  ar: ["سباي", "اس اند بي", "السوق"]}
+  - {symbol: QQQ,   name: "Invesco QQQ (Nasdaq-100)", etf: true, ar: ["كيو كيو كيو", "ناسداك", "كيو"]}
+  - {symbol: IWM,   name: "iShares Russell 2000 ETF", etf: true, ar: ["راسل", "الشركات الصغيره"]}
+  - {symbol: AAPL,  name: "Apple",     ar: ["ابل", "آبل", "ابل"]}
+  - {symbol: MSFT,  name: "Microsoft", ar: ["مايكروسوفت", "ميكروسوفت"]}
+  - {symbol: NVDA,  name: "NVIDIA",    ar: ["انفيديا", "نفيديا", "انفيدیا"]}
+  - {symbol: AMZN,  name: "Amazon",    ar: ["امازون"]}
+  - {symbol: GOOGL, name: "Alphabet (Google)", ar: ["قوقل", "جوجل", "غوغل", "الفابت"]}
+  - {symbol: META,  name: "Meta Platforms", ar: ["ميتا", "فيسبوك"]}
+  - {symbol: TSLA,  name: "Tesla",     ar: ["تسلا"]}
+  - {symbol: AMD,   name: "AMD",       ar: ["اي ام دي", "امد"]}
+  - {symbol: AVGO,  name: "Broadcom",  ar: ["برودكوم"]}
+  - {symbol: NFLX,  name: "Netflix",   ar: ["نتفليكس"]}
+  - {symbol: JPM,   name: "JPMorgan Chase", ar: ["جي بي مورقان", "جي بي مورغان", "جيه بي"]}
+  - {symbol: PLTR,  name: "Palantir",  ar: ["بالانتير", "بلانتير"]}
+crypto:
+  - {symbol: BTCUSDT, display: BTC, name: "Bitcoin",  news: BTC-USD, ar: ["بيتكوين", "بتكوين", "البيتكوين"]}
+  - {symbol: ETHUSDT, display: ETH, name: "Ethereum", news: ETH-USD, ar: ["ايثريوم", "ايثيريوم", "الايثر", "اثريوم"]}
+  - {symbol: SOLUSDT, display: SOL, name: "Solana",   news: SOL-USD, ar: ["سولانا"]}
+
+settings:
+  bars_on_chart: 500        # عدد الشموع المعروضة لكل فريم
+  run_llm: true             # الملخص العربي بالنموذج الصغير (false = قالب ثابت)
+  run_finbert: true         # تحليل مشاعر العناوين الإنجليزية
+  # عنوان SEC: يُقرأ من سر المستودع SEC_USER_AGENT (مثال: "FreeAIAgents/1.0 you@example.com")
