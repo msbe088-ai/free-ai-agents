@@ -7,9 +7,9 @@ from playwright.sync_api import sync_playwright
 
 URL, OUT = sys.argv[1], sys.argv[2]
 TFS = ["1d", "4h", "1h"]
-SYM_TABS = ["summary", "data", "technical", "patterns", "levels", "news", "sentiment",
+SYM_TABS = ["summary", "plan", "data", "technical", "patterns", "levels", "news", "sentiment",
             "fundamentals", "options", "backtest", "risk"]
-TF_TABS = {"data", "technical", "patterns", "levels"}
+TF_TABS = {"plan", "data", "technical", "patterns", "levels"}
 GLOBAL_TABS = ["crypto", "macro", "scanner", "status"]
 
 
@@ -20,6 +20,8 @@ def check_tab(tab, txt, kind, etf, html):
     if tab == "summary":
         ok = "الملخص العربي" in txt and len(txt) > 80 and "لا يوجد ملخص" not in txt
         return ok, ""
+    if tab == "plan":
+        return ("خطة الصفقة الآلية" in txt and "فحص تاريخي" in txt and "الحالة" in txt), ""
     if tab == "data":
         return ("آخر سعر" in txt and "عدد الشموع" in txt), ""
     if tab == "technical":
@@ -71,10 +73,10 @@ with sync_playwright() as p:
               const t=st.data[st.sym].tf[st.tf];
               return {n:d.length,last:d.length?d[d.length-1].time:null,lastClose:d.length?d[d.length-1].close:null,
                 jsonLast:t.bars[t.bars.length-1][0],jsonClose:t.bars[t.bars.length-1][4],
-                lines:st.lines.length,markers:st.candle.markers().length,
+                lines:st.lines.length,planLines:st.planLines.length,markers:st.candle.markers().length,
                 sup:(t.technical.supports||[]).length,res:(t.technical.resistances||[]).length,
                 canv:document.querySelectorAll('#chart canvas').length}})()""")
-            exp_lines = info["sup"] + info["res"]
+            exp_lines = info["sup"] + info["res"] + info["planLines"]  # S/R + trade-plan lines
             ok = info["n"] > 0 and info["canv"] > 0 and info["last"] == info["jsonLast"] and \
                 info["lastClose"] == info["jsonClose"] and info["lines"] == exp_lines and info["markers"] > 0
             res["cells"].append({"symbol": sym, "tf": tf, "part": f"chart {tf}", "ok": ok, "info": info})
