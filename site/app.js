@@ -322,7 +322,7 @@
     }
     const i = state.index;
     const ageH = (Date.now() - Date.parse(i.generated_at)) / 3600000;
-    const staleNote = ageH > 9 ? ` · <b class="down">⚠️ آخر تشغيل قبل ${Math.floor(ageH)} ساعة، أقدم من الجدول المعتاد</b>` : '';
+    const staleNote = ageH > 13 ? ` · <b class="down">⚠️ آخر تشغيل قبل ${Math.floor(ageH)} ساعة، أقدم من الجدول المعتاد</b>` : '';
     $('notice').innerHTML = `آخر تشغيل للوكلاء: <b>${esc(i.generated_at_label)}</b>${staleNote} · البيانات مجانية وقد تتأخر (ياهو عادة ~15 دقيقة أو أكثر، والشموع اليومية بعد الإغلاق) · ${esc(i.disclaimer)}`;
     $('symbolSelect').innerHTML = `<optgroup label="أسهم وصناديق">${i.symbols.filter(s => s.kind === 'stock').map(s => `<option value="${esc(s.symbol)}">${esc(s.symbol)} — ${esc(s.name)}</option>`).join('')}</optgroup><optgroup label="كريبتو">${i.symbols.filter(s => s.kind === 'crypto').map(s => `<option value="${esc(s.symbol)}">${esc(s.symbol)} — ${esc(s.name)}</option>`).join('')}</optgroup>`;
     const hash = decodeURIComponent((location.hash || '').slice(1)).toUpperCase();
