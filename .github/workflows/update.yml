@@ -1,4 +1,5 @@
 name: Update agents page
+# schedule re-registered 2026-11-18 (no scheduled run had fired after creation)
 
 on:
   schedule:
